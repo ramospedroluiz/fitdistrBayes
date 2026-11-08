@@ -1,6 +1,6 @@
 # fitdistrBayes
 
-`fitdistrBayes` 0.5.1 fits common univariate distributions under registered
+`fitdistrBayes` 0.8.0 fits common univariate distributions under registered
 objective Bayesian priors through a deliberately small interface:
 
 ```r
@@ -17,10 +17,86 @@ exist, so a finite chain is not used to justify a divergent moment.
 Install the source archive supplied with this research release and load it:
 
 ```r
-install.packages("fitdistrBayes_0.5.1.tar.gz", repos = NULL,
+install.packages("fitdistrBayes_0.8.0.tar.gz", repos = NULL,
                  type = "source")
 library(fitdistrBayes)
 ```
+
+## Objective Bayesian AFT regression
+
+```r
+library(survival)
+fit <- fitAFTBayes(Surv(time, event) ~ age10 + group, data = dat,
+                  distr = "weibull", prior = "reference", seed = 40)
+coef(fit, type = "time_ratio")
+confint(fit, type = "time_ratio")
+predict(fit, newdata = profiles, times = c(1, 3, 5))
+```
+
+Use a numeric response for complete data. `fitAFTBayes_models()` lists nine
+families: Prentice generalized gamma (the default), Weibull, lognormal,
+log-logistic, log-Laplace, fixed-degree log-Student-t, exponential, Rayleigh,
+and gamma. Factors and interactions are supported.
+Right censoring is conditional non-informative censoring;
+left truncation, other censoring types, offsets and weights are not supported.
+The function checks sufficient failure-design conditions before fitting.
+It reports sampling diagnostics and applies model-specific propriety checks.
+
+GG offers `prior="reference"` and `prior="simple"` and rejects joint
+Jeffreys because its posterior is improper. Other families offer reference
+and joint Jeffreys, with the prior specified in each model's own parameters.
+Gamma estimates its unrestricted positive shape by default; the two shape
+factors and boundary proof are documented. A fixed `shape` is optional.
+Log-Student-t requires a fixed `df` and passes a conservative pointwise
+certificate that protects against partially interpolated/rounded samples.
+Exponential/Rayleigh fix scale, so both prior names reduce to flat beta.
+No prior hyperparameters or arbitrary shape truncation are introduced.
+
+GG uses quantile-centered slice sampling to improve exploration
+of the curved scale-shape tails under heavy censoring. Centering is a
+change of coordinates with unit intercept Jacobian; the priors and
+observed-data likelihood are unchanged. Each iteration is a full sweep.
+Inspect rank-normalized R-hat and bulk/tail ESS; numerical convergence
+is not guaranteed merely by posterior propriety.
+Complete lognormal regression and selected intercept-only models use exact
+posterior simulation. Other families use fixed-basis slice sweeps.
+
+`summary`, `coef`, `confint`, `predict`, `plot`, `log_lik`, `WAIC`, `LOOIC`,
+`DIC` and `compare_models` support the AFT class. DIC reports unavailability
+under both GG priors because the posterior absolute mean of Q diverges.
+Other families allow DIC only when the needed parameter means are certified.
+Survival summaries distinguish the predictive mean survival probability
+from the posterior median and interval of the conditional survival curve.
+
+See `help("fitAFTBayes")`, `help("fitAFTBayes-methods")`, the synthetic-data
+`inst/examples/tutorial_aft_gg.R`, `inst/examples/tutorial_aft_models.R`,
+`inst/doc/gg-aft-theory.txt`, and `inst/doc/aft-models-theory.txt`.
+
+## Dhillon (added in 0.6.0)
+
+The complete-data and censored interfaces accept `"dhillon"`, with survival
+`1/(1 + theta*t^beta)` and positive parameters `beta, theta`. The aliases
+`"log-logistic"` and `"loglogistic"` use exactly this parameterization.
+Jeffreys and `"reference-beta"` coincide; `"reference-theta"` is a distinct
+ordered prior. `"reference"` means `"reference-beta"`. MDI is rejected.
+
+```r
+set.seed(19)
+x <- exp((rlogis(100) - log(2)) / 3)
+fit <- fitdistrBayes(x, "dhillon", "reference-beta", seed = 20)
+observed <- pmin(x, 1)
+status <- as.integer(x <= 1)
+fit_cens <- fitcensBayes(observed, status, "dhillon", "reference-theta", seed = 21)
+fit$moment_status
+fit$predictive_moments
+help("Dhillon")
+```
+
+Both observed-likelihood and augmentation methods are available. Exact
+observed-data propriety and parameter-moment checks run before sampling.
+Predictive lifetime means are infinite: use quantiles and survival probabilities.
+The console tutorial is `inst/examples/tutorial_dhillon.R`; the censored-data
+derivation is in `inst/doc/dhillon-theory.txt` (installed as `doc/`).
 
 ## Optional model comparison
 
@@ -68,12 +144,12 @@ predict(fit, type = "survival", times = c(1, 2, 3), draws = 5)
 log_lik(fit, draws = 5)
 ```
 
-The catalogue `fitcensBayes_models()` lists 56 registered model-prior routes
-for 20 distributions. The priors are inherited from the **complete-data model**;
+The catalogue `fitcensBayes_models()` lists 59 registered model-prior routes
+for 21 distributions. The priors are inherited from the **complete-data model**;
 they are not claimed to be Jeffreys or reference priors rederived for a
 particular censoring design. Posterior propriety is certified by sufficient
 conditions on the exact-event subset, with an additional analytic Exponential
-case. An uncertified case is rejected before sampling. Imputed observations
+case and an exact observed-data condition for Dhillon. An uncertified case is rejected before sampling. Imputed observations
 are never used to satisfy these conditions.
 
 `method = "auto"` uses the observed likelihood when censoring is present;
@@ -133,7 +209,7 @@ dim(ll)
 
 ## Supported routes
 
-The package has 56 enabled model--prior combinations for 20 distributions.
+The package has 59 enabled model--prior combinations for 21 distributions.
 For Student-t with unknown degrees of freedom, the independence Jeffreys prior
 requires at least two pairwise distinct observations; samples with ties are
 rejected because the posterior is improper. Fixed-df Student-t models use
@@ -198,9 +274,9 @@ responsibility for every custom target.
 
 ## Scope and limitations
 
-The current package is for complete iid univariate samples. It does not
-implement censoring, truncation, observation weights, regression, hierarchical
-models, or automatic comparison among candidate distributions. It refuses
+The package handles complete iid univariate samples and independent,
+noninformative right censoring through `fitcensBayes()`. Optional WAIC, DIC,
+and PSIS-LOO calculations use the observed-data likelihood. It refuses
 routes known to be improper, including the Lomax independent
 Jeffreys/reference posterior and the Nakagami-m MDI posterior, and it does not
 substitute an approximation when full-model propriety has not been established.

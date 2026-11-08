@@ -9,7 +9,7 @@ on:
       config:
         description: Comma-separated R-hub platforms
         type: string
-        default: macos-arm64,nold
+        default: windows,r-release-macos-arm64,macos-arm64,ubuntu-release,ubuntu-gcc16,nold
       name:
         description: Optional run name
         type: string
@@ -19,6 +19,9 @@ on:
 
 permissions:
   contents: read
+
+env:
+  RHUB_ACTIONS_CHECK_SCRIPT: Rscript .github/ci/check-archive.R
 
 jobs:
   setup:
@@ -45,6 +48,8 @@ jobs:
         config: ${{ fromJson(needs.setup.outputs.containers) }}
     container:
       image: ${{ matrix.config.container }}
+    env:
+      FDB_CI_PLATFORM: ${{ matrix.config.name }}
     steps:
       - uses: r-hub/actions/checkout@v1
       - uses: r-hub/actions/platform-info@v1
@@ -66,6 +71,8 @@ jobs:
     runs-on: ${{ matrix.config.os }}
     timeout-minutes: 30
     name: ${{ matrix.config.label }}
+    env:
+      FDB_CI_PLATFORM: ${{ matrix.config.name }}
     strategy:
       fail-fast: false
       matrix:
