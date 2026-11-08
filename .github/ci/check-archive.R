@@ -2,7 +2,7 @@
 archive <- ".github/ci/fitdistrBayes_0.8.0.tar.gz"
 manifest <- read.dcf(".github/ci/archive.dcf")
 stopifnot(file.exists(archive),
-          identical(unname(tools::md5sum(archive)), manifest[1, "MD5"]),
+          identical(unname(tools::md5sum(archive)), unname(manifest[1, "MD5"])),
           file.info(archive)$size == as.numeric(manifest[1, "Bytes"]))
 dir.create("check", showWarnings = FALSE)
 platform <- Sys.getenv("FDB_CI_PLATFORM")
