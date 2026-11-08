@@ -9,7 +9,7 @@ on:
       config:
         description: Comma-separated R-hub platforms
         type: string
-        default: windows,r-release-macos-arm64,macos-arm64,ubuntu-release,ubuntu-gcc16,nold
+        default: windows,r-release-macos-arm64,macos-arm64,ubuntu-release,ubuntu-clang,nold
       name:
         description: Optional run name
         type: string
